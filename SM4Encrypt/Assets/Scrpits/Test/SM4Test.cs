@@ -1,42 +1,76 @@
 ﻿using System;
 using System.IO;
 using Encrypt;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace Test
 {
     public class SM4Test : MonoBehaviour
     {
-        public static string dataName  = "1_lzma";
-        public static string sceneName = "test_lzma";
+        public TMP_Text assetTypeName;
+
+        public static string dataName_lz4  = "1_lz4";
+        public static string sceneName_lz4 = "test_lz4";
+
+        public static string dataName_lzma  = "1_lzma";
+        public static string sceneName_lzma = "test_lzma";
 
         private static string _dataPostfix  = "data";
         private static string _scenePostfix = "scene";
 
-        private static string _assetName    = sceneName;
+        private static string _assetName    = sceneName_lzma;
         private static string _assetPostfix = _scenePostfix;
-        private static string assetPathName = String.Format("{0}/{1}", Application.streamingAssetsPath, _assetName);
 
-        private static string _assetPath    = String.Format("{0}.{1}",   assetPathName, _assetPostfix);
-        private        string _cryptoPath   = String.Format("{0}_c.{1}", assetPathName, _assetPostfix);
-        private        string _decryptoPath = String.Format("{0}_d.{1}", assetPathName, _assetPostfix);
-        private        string _paddingPath  = String.Format("{0}_p.{1}", assetPathName, _assetPostfix);
+        private static string _assetPathName;
+        private        string _assetPath;
+        private        string _cryptoPath;
+        private        string _decryptoPath;
+        private        string _paddingPath;
 
-        private string _cryptoPathPkcs7Path = String.Format("{0}_c.{1}",     assetPathName, _assetPostfix);
-        private string _decryptoPkcs7Path   = String.Format("{0}_pkcs7.{1}", assetPathName, _assetPostfix);
+        private string _cryptoPkcs7Path;
+        private string _decryptoPkcs7Path;
 
 
-        private bool isScene = true;
+        private bool isScene;
 
         private void Awake()
         {
-            isScene = true;
+            EncryptType();
         }
 
         public void EncryptType()
         {
             isScene = !isScene;
+            if (isScene)
+            {
+                _assetName         = sceneName_lzma;
+                _assetPostfix      = _scenePostfix;
+                assetTypeName.text = "Scene";
+            }
+            else
+            {
+                _assetName         = dataName_lzma;
+                _assetPostfix      = _dataPostfix;
+                assetTypeName.text = "Data";
+            }
+
+            RefreshPath();
+        }
+
+        private void RefreshPath()
+        {
+            _assetPathName = String.Format("{0}/{1}", Application.streamingAssetsPath, _assetName);
+
+            _assetPath    = String.Format("{0}.{1}",   _assetPathName, _assetPostfix);
+            _cryptoPath   = String.Format("{0}_c.{1}", _assetPathName, _assetPostfix);
+            _decryptoPath = String.Format("{0}_d.{1}", _assetPathName, _assetPostfix);
+            _paddingPath  = String.Format("{0}_p.{1}", _assetPathName, _assetPostfix);
+            
+            _cryptoPkcs7Path   = String.Format("{0}_pkcs7_c.{1}", _assetPathName, _assetPostfix);
+            _decryptoPkcs7Path = String.Format("{0}_pkcs7_d.{1}", _assetPathName, _assetPostfix);
         }
 
         public void PaddingRaw()
@@ -44,10 +78,10 @@ namespace Test
             EncryptFile.PaddingRaw(_assetPath, _paddingPath);
             Debug.Log("OK");
         }
-        
+
         public void CryptoNoPadding()
         {
-            EncryptFile.SegmentCryptoNoPadding(_paddingPath, _cryptoPath, Sm4Define.segmentSize,true);
+            EncryptFile.SegmentCryptoNoPadding(_paddingPath, _cryptoPath, Sm4Define.segmentSize, true);
             Debug.Log("OK");
         }
 
@@ -59,24 +93,54 @@ namespace Test
 
         public void CryptoPKCS7()
         {
-            EncryptFile.SegmentCryptoPKCS7(_paddingPath, _cryptoPath, true);
+            EncryptFile.SegmentCryptoPKCS7(_assetPath, _cryptoPkcs7Path, true);
             Debug.Log("OK");
         }
 
         public void DecryptoPKCS7()
         {
-            EncryptFile.SegmentCryptoPKCS7(_cryptoPath, _decryptoPath, false);
+            EncryptFile.SegmentCryptoPKCS7(_cryptoPkcs7Path, _decryptoPkcs7Path, false);
             Debug.Log("OK");
         }
-        
+
         public void LoadAssetBundle()
         {
             LoadSm4AssetBundle(_cryptoPath);
         }
 
-        private static void LoadSm4AssetBundle(string assetPath)
+        private void LoadSm4AssetBundle(string assetPath)
         {
             using (var fileStream = new Sm4Stream(assetPath, FileMode.Open))
+            {
+                var myLoadedAssetBundle = AssetBundle.LoadFromStream(fileStream);
+                var assetNames          = myLoadedAssetBundle.GetAllAssetNames();
+                if (assetNames.Length != 0)
+                {
+                    foreach (var assetName in assetNames)
+                    {
+                        Debug.LogFormat("===============Asset {0}", assetName);
+                        var asset = myLoadedAssetBundle.LoadAsset(assetName);
+
+                        Debug.LogFormat("==============={0} Context:{1}", asset.GetType(),asset);
+                    }
+                }
+                else
+                {
+                    var sceneNames = myLoadedAssetBundle.GetAllScenePaths();
+                    foreach (var sceneName in sceneNames)
+                    {
+                        Debug.LogFormat("===============Scene {0}", sceneName);
+
+                        SceneManager.LoadScene(sceneName, LoadSceneMode.Additive);
+                    }
+                }
+            }
+        }
+
+        public void LoadLZ4AssetBundle()
+        {
+            var assetPath = String.Format("{0}/{1}.{2}", Application.streamingAssetsPath, sceneName_lz4, _scenePostfix);
+            using (var fileStream = new FileStream(assetPath, FileMode.Open))
             {
                 var myLoadedAssetBundle = AssetBundle.LoadFromStream(fileStream);
                 var assetNames          = myLoadedAssetBundle.GetAllAssetNames();
@@ -96,7 +160,7 @@ namespace Test
                     foreach (var sceneName in sceneNames)
                     {
                         Debug.LogFormat("===============Scene {0}", sceneName);
-                    
+
                         SceneManager.LoadScene(sceneName, LoadSceneMode.Additive);
                     }
                 }
