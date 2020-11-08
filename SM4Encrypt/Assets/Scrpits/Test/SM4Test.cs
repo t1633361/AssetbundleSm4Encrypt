@@ -4,19 +4,23 @@ using Encrypt;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 namespace Test
 {
     public class SM4Test : MonoBehaviour
     {
+        public TMP_Text assetName;
         public TMP_Text assetTypeName;
 
         public static string dataName_lz4  = "1_lz4";
         public static string sceneName_lz4 = "test_lz4";
 
         public static string dataName_lzma  = "1_lzma";
-        public static string sceneName_lzma = "test_lzma";
+        //public static string sceneName_lzma = "test_lzma";
+        //public static string sceneName_lzma = "test_mega_lzma";
+        public static string sceneName_lzma = "test_office_lzma";
+        
+        
 
         private static string _dataPostfix  = "data";
         private static string _scenePostfix = "scene";
@@ -62,6 +66,7 @@ namespace Test
 
         private void RefreshPath()
         {
+            assetName.text = _assetName;
             _assetPathName = String.Format("{0}/{1}", Application.streamingAssetsPath, _assetName);
 
             _assetPath    = String.Format("{0}.{1}",   _assetPathName, _assetPostfix);
@@ -81,14 +86,16 @@ namespace Test
 
         public void CryptoNoPadding()
         {
+            var begin = Time.realtimeSinceStartup;
             EncryptFile.SegmentCryptoNoPadding(_paddingPath, _cryptoPath, Sm4Define.segmentSize, true);
-            Debug.Log("OK");
+            Debug.LogFormat("OK:{0}",Time.realtimeSinceStartup-begin);
         }
 
         public void DecryptoNoPadding()
         {
+            var begin = Time.realtimeSinceStartup;
             EncryptFile.SegmentCryptoNoPadding(_cryptoPath, _decryptoPath, Sm4Define.segmentSize, false);
-            Debug.Log("OK");
+            Debug.LogFormat("OK:{0}", Time.realtimeSinceStartup -begin);
         }
 
         public void CryptoPKCS7()
@@ -110,9 +117,10 @@ namespace Test
 
         private void LoadSm4AssetBundle(string assetPath)
         {
-            using (var fileStream = new Sm4Stream(assetPath, FileMode.Open))
+            var        begin = Time.realtimeSinceStartup;
+            using (var fileStream = new Sm4Stream(assetPath, FileMode.Open, FileAccess.Read, FileShare.None, Sm4Define.segmentSize,false, Sm4Define.key))
             {
-                var myLoadedAssetBundle = AssetBundle.LoadFromStream(fileStream);
+                var myLoadedAssetBundle = AssetBundle.LoadFromStream(fileStream, 0, Sm4Define.segmentSize);
                 var assetNames          = myLoadedAssetBundle.GetAllAssetNames();
                 if (assetNames.Length != 0)
                 {
@@ -135,6 +143,7 @@ namespace Test
                     }
                 }
             }
+            Debug.LogFormat("OK:{0}", Time.realtimeSinceStartup -begin);
         }
 
         public void LoadLZ4AssetBundle()
