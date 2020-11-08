@@ -56,36 +56,25 @@ namespace Encrypt
             long   offset       = 0;
             var segmentBytes = new byte[segmentSize];
             
-            double t1;
-            int    index = 0;
             while (offset < fileLength)
             {
-                t1 = DateTime.Now.Ticks;
-
                 readStream.Seek(offset, SeekOrigin.Begin);
 
-                int    tempLength = -1;
-                byte[] sm4;
-                long   tempCount = segmentSize;
+                long   tempSize = segmentSize;
                 if (offset + segmentSize > fileLength)
                 {
-                    tempCount = fileLength - offset;
-                    segmentBytes  = new byte[fileLength - offset];
+                    tempSize = fileLength - offset;
+                    segmentBytes  = new byte[tempSize];
                 }
                 
-                tempLength = readStream.Read(segmentBytes, 0, (int)tempCount);
-                
-                if (tempLength != segmentSize)
-                {
-                    //Debug.LogErrorFormat("Read Length:{0},{1}", index, tempLength);
-                }
+                var tempLength = readStream.Read(segmentBytes, 0, (int)tempSize);
                 
                 if (tempLength <= 0)
                 {
-                    //Debug.LogError(tempLength);
-                    break;
+                    throw new EncryptException();
                 }
-            
+                
+                byte[] sm4;
                 if (crypto)
                 {
                     sm4 = Sm4Base.EncryptCBCNoPadding(segmentBytes, Sm4Define.key);
@@ -99,7 +88,7 @@ namespace Encrypt
                 writeSteam.Write(sm4, 0, sm4.Length);
 
                 offset += tempLength;
-                ++index;
+                
                 if (offset >= fileLength)
                 {
                     break;

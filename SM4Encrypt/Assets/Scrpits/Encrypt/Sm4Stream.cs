@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using SecretUtils;
 
 namespace Encrypt
@@ -19,18 +20,17 @@ namespace Encrypt
             var index = base.Read(array, offset, count);
        
             var sm4 = Sm4Base.DecryptCBCNoPadding(array, sm4key);
+
+            for (int i = 0; i < index; ++i)
+            {
+                array[i] = sm4[i];
+            }
         
-            array = (byte [])sm4.Clone();
-        
-            return array.Length;
+            return index;
         }
         public override void Write(byte[] array, int offset, int count)
         {
-            for (int i = 0; i < array.Length; i++)
-            {
-                array[i] ^= KEY;
-            }
-            base.Write(array, offset, count);
+            throw new NotImplementedException();
         }
     
     
