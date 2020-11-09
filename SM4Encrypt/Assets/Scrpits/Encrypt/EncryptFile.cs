@@ -55,7 +55,8 @@ namespace Encrypt
 
             long   offset       = 0;
             var segmentBytes = new byte[segmentSize];
-            
+
+            bool header = true;
             while (offset < fileLength)
             {
                 readStream.Seek(offset, SeekOrigin.Begin);
@@ -75,15 +76,39 @@ namespace Encrypt
                 }
                 
                 byte[] sm4;
-                if (crypto)
+                if (Sm4Define.encryptHeader)
                 {
-                    sm4 = Sm4Base.EncryptCBCNoPadding(segmentBytes, Sm4Define.key);
+                    if (header)
+                    {
+                        if (crypto)
+                        {
+                            sm4 = Sm4Base.EncryptCBCNoPadding(segmentBytes, Sm4Define.key);
+                        }
+                        else
+                        {
+                            sm4 = Sm4Base.DecryptCBCNoPadding(segmentBytes, Sm4Define.key);
+                        }
+
+                        header = !header;
+                    }
+                    else
+                    {
+                        sm4 = segmentBytes;
+                    }
+
                 }
                 else
                 {
-                    sm4 = Sm4Base.DecryptCBCNoPadding(segmentBytes, Sm4Define.key);
+                    if (crypto)
+                    {
+                        sm4 = Sm4Base.EncryptCBCNoPadding(segmentBytes, Sm4Define.key);
+                    }
+                    else
+                    {
+                        sm4 = Sm4Base.DecryptCBCNoPadding(segmentBytes, Sm4Define.key);
+                    }
                 }
-                
+
                 writeSteam.Position = writeSteam.Length;
                 writeSteam.Write(sm4, 0, sm4.Length);
 

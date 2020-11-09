@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using SecretUtils;
-using UnityEngine;
 
 namespace Encrypt
 {
@@ -12,6 +11,10 @@ namespace Encrypt
         {
             sm4key = key;
         }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => true;
+
         public Sm4Stream(string path, FileMode mode,string key) : base(path, mode)
         {
             sm4key = key;
@@ -19,16 +22,28 @@ namespace Encrypt
     
         public override int Read(byte[] array, int offset, int count)
         {
+            bool header = Position == 0;
+            var  index  = base.Read(array, offset, count);
             
-            var index = base.Read(array, offset, count);
-       
-            var sm4 = Sm4Base.DecryptCBCNoPadding(array, sm4key);
-
-            for (int i = 0; i < index; ++i)
+            if (!Sm4Define.encryptHeader)
             {
-                array[i] = sm4[i];
+                var sm4 = Sm4Base.DecryptCBCNoPadding(array, sm4key);
+
+                for (int i = 0; i < index; ++i)
+                {
+                    array[i] = sm4[i];
+                }   
             }
-        
+            else if(header)
+            {
+                var sm4 = Sm4Base.DecryptCBCNoPadding(array, sm4key);
+
+                for (int i = 0; i < index; ++i)
+                {
+                    array[i] = sm4[i];
+                } 
+            }
+
             return index;
         }
         public override void Write(byte[] array, int offset, int count)
