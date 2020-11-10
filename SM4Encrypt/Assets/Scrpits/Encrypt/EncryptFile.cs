@@ -8,7 +8,7 @@ namespace Encrypt
     public static class EncryptFile
     {
         /// <summary>
-        /// 文件大小16byte对齐
+        /// Pkcs7 padding
         /// </summary>
         /// <param name="assetPath"></param>
         /// <param name="paddingPath"></param>
@@ -35,7 +35,8 @@ namespace Encrypt
 
 
         /// <summary>
-        /// 大文件分段加密
+        /// Big file segment crypto
+        /// NoPadding
         /// </summary>
         /// <param name="readPath"></param>
         /// <param name="writePath"></param>
@@ -125,7 +126,8 @@ namespace Encrypt
         }
 
         /// <summary>
-        /// 大文件分段加密
+        /// Big file segment crypto
+        /// pkcs7 
         /// </summary>
         /// <param name="readPath"></param>
         /// <param name="writePath"></param>

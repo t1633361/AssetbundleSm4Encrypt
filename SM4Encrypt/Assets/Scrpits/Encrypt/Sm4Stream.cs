@@ -9,37 +9,23 @@ namespace Encrypt
 {
     public class Sm4Stream : FileStream
     {
-        private readonly string     sm4key;
-        private          FileStream testStream;
+        private readonly string sm4key;
+        public override  bool   CanRead => true;
+        public override  bool   CanSeek => true;
+        
+        public Sm4Stream(string path, FileMode mode, string key) : base(path, mode)
+        {
+            sm4key = key;
+        }
+
         public Sm4Stream(string path, FileMode mode, FileAccess access, FileShare share, int bufferSize, bool useAsync,string key) : base(path, mode, access, share, bufferSize, useAsync)
         {
             sm4key = key;
-            
-            var assetPath = String.Format("{0}/{1}_p.{2}", Application.streamingAssetsPath, TestDefine.sceneName_lz4,
-                TestDefine.scenePostfix);
-            
-            testStream = new FileStream(assetPath, FileMode.Open);
-            
         }
 
-        public override bool CanRead => true;
-        public override bool CanSeek => true;
-
-        public Sm4Stream(string path, FileMode mode,string key) : base(path, mode)
-        {
-            sm4key = key;
-            
-            var assetPath = String.Format("{0}/{1}_p.{2}", Application.streamingAssetsPath, TestDefine.sceneName_lz4,
-                TestDefine.scenePostfix);
-            
-            testStream = new FileStream(assetPath, FileMode.Open);
-        }
-        public Dictionary<long, byte[]> tempBytes = new Dictionary<long, byte[]>();
-
-        private byte[] lz4Cache;
+        private byte[] _lz4Cache;
         public override int Read(byte[] array, int offset, int count)
         {
-            Debug.LogFormat("Read:{0} {1}",Position,count);
             
             if(offset != 0)
                 throw new EncryptException($"Offset is {offset}");
@@ -66,69 +52,35 @@ namespace Encrypt
                     {
                         base.Seek(firstPos, SeekOrigin.Begin);
                         
-                        if(lz4Cache == null || lz4Cache.Length != count)
-                            lz4Cache = new byte[count];
+                        if(_lz4Cache == null || _lz4Cache.Length != count)
+                            _lz4Cache = new byte[count];
                         
-                        int firstIndex = base.Read(lz4Cache, offset, count);
+                        int firstIndex = base.Read(_lz4Cache, offset, count);
                         
-                        var sm4 = Sm4Base.DecryptCBCNoPadding(lz4Cache, sm4key);
-                        
-                        index = firstIndex - remainder;
+                        var sm4 = Sm4Base.DecryptCBCNoPadding(_lz4Cache, sm4key);
                         
                         for (long i = remainder; i < firstIndex; ++i)
                         {
                             array[i - remainder] = sm4[i];
                         }
-                        
-                        testStream.Seek(oldPos, SeekOrigin.Begin);
-                        int lz4Index = testStream.Read(sm4, offset, count);
-                        
-                        Debug.LogFormat("SeekPos:{0} {1} {2}", testStream.Position, Position, lz4Index);
-                        
-                        index = lz4Index;
-                        
-                        for (int i = 0; i < count; ++i)
-                        {
-                            sm4[i] = array[i];
-                        }
-                        
-                        tempBytes[oldPos] = sm4;
-                        
-                        // testStream.Seek(Position, SeekOrigin.Begin);
-                        // index = base.Read(array, offset, count);
-                        // index = testStream.Read(array, offset, count);
-                        // Debug.LogFormat("Read:{0} {1} {2} {3}", testStream.Position, Position, count, index);
-                        // return (int)index;
+
+                        index = firstIndex - remainder;
                     }
                     else
                     {
-                        // testStream.Seek(Position, SeekOrigin.Begin);
-                        // index = base.Read(array, offset, count);
-                        // index = testStream.Read(array, offset, count);
-                        // Debug.LogFormat("Read:{0} {1} {2} {3}", testStream.Position, Position, count, index);
-                        // return (int)index;
-                        
                         base.Seek(firstPos, SeekOrigin.Begin);
                         
-                        if(lz4Cache == null || lz4Cache.Length != count)
-                            lz4Cache = new byte[count];
+                        if(_lz4Cache == null || _lz4Cache.Length != count)
+                            _lz4Cache = new byte[count];
                         
-                        int firstIndex = base.Read(lz4Cache, offset, count);
+                        base.Read(_lz4Cache, offset, count);
                         
-                        var sm4 = Sm4Base.DecryptCBCNoPadding(lz4Cache, sm4key);
+                        var sm4 = Sm4Base.DecryptCBCNoPadding(_lz4Cache, sm4key);
+
+                        base.Read(_lz4Cache, offset, count);
                         
-                        
-                        //base.Seek(secondPos, SeekOrigin.Begin);
-                        
-                        int secondIndex = base.Read(lz4Cache, offset, count);
-                        
-                        var sm41 = Sm4Base.DecryptCBCNoPadding(lz4Cache, sm4key);
-                        
-                        for (int i = 0; i < count; ++i)
-                        {
-                            array[i] = 0;
-                        }
-                        
+                        var sm41 = Sm4Base.DecryptCBCNoPadding(_lz4Cache, sm4key);
+
                         for (long i = remainder; i < count; ++i)
                         {
                             array[i - remainder] = sm4[i];
@@ -138,29 +90,8 @@ namespace Encrypt
                         {
                             array[count - remainder + i] = sm41[i];
                         }
-
+                        base.Seek(oldPos + count, SeekOrigin.Begin);
                         index = count;
-                        base.Seek(oldPos+count, SeekOrigin.Begin);
-                        
-                        testStream.Seek(oldPos, SeekOrigin.Begin);
-                        var iiii = testStream.Read(lz4Cache, offset, count);
-                        
-                        Debug.LogFormat("Seeeeeeeeek: {0} {1} {2} {3}",Position, testStream.Position, index, iiii);
-                        
-                        // for (int i = 0; i < count; ++i)
-                        // {
-                        //     array[i] = lz4Cache[i];
-                        // }
-                        //
-                        
-                        for (int i = 0; i < count; ++i)
-                        {
-                            sm4[i] = array[i];
-                        }
-                        
-                        tempBytes[oldPos] = sm4;
-                        
-                        
                     }
                 }
             }
@@ -180,11 +111,6 @@ namespace Encrypt
                     
                 }
             }
-            
-            
-            
-            
-            
 
             return (int)index;
         }
@@ -208,9 +134,6 @@ namespace Encrypt
         {
             
         }
-        
-        
-        
         public override void Write(byte[] array, int offset, int count)
         {
             throw new NotImplementedException();

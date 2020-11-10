@@ -171,7 +171,7 @@ namespace Test
                 TestDefine.scenePostfix);
 
             if (_fileStream == null)
-                _fileStream = new TestStream(assetPath, FileMode.Open);
+                _fileStream = new FileStream(assetPath, FileMode.Open);
 
             var myLoadedAssetBundle = AssetBundle.LoadFromStream(_fileStream);
             var assetNames          = myLoadedAssetBundle.GetAllAssetNames();
@@ -195,30 +195,6 @@ namespace Test
                     SceneManager.LoadScene(sceneName, LoadSceneMode.Additive);
                 }
             }
-        }
-
-        public void WriteDecryptoMemory()
-        {
-            string writePath = Application.streamingAssetsPath + "/WriteFile.scene";
-            
-            if (sm4Stream == null)
-                return;
-            
-            if (File.Exists(writePath))
-            {
-                File.Delete(writePath);
-            }
-
-            FileStream writeSteam = new FileStream(writePath, FileMode.Create);
-
-            var keys = sm4Stream.tempBytes.Keys;
-
-            foreach (var key in keys)
-            {
-                writeSteam.Position = writeSteam.Length;
-                writeSteam.Write(sm4Stream.tempBytes[key], 0, sm4Stream.tempBytes[key].Length);
-            }
-            writeSteam.Close();
         }
     }
 }
