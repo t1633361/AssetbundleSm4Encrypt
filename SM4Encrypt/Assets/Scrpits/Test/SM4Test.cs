@@ -26,10 +26,19 @@ namespace Test
 
 
         private bool isScene;
-
+        
+        private Sm4Stream  _sm4Stream;
+        private FileStream _fileStream;
+        
         private void Awake()
         {
             EncryptType();
+        }
+        
+        private void OnDestroy()
+        {
+            _fileStream?.Close();
+            _sm4Stream?.Close();
         }
 
         public void EncryptType()
@@ -96,77 +105,30 @@ namespace Test
             EncryptFile.SegmentCryptoPKCS7(_cryptoPkcs7Path, _decryptoPkcs7Path, false);
             Debug.Log("OK");
         }
-
+        
         public void LoadAssetBundle()
         {
-            LoadSm4AssetBundle(_cryptoPath);
+            var begin = Time.realtimeSinceStartup;
+            if (_sm4Stream == null)
+                _sm4Stream = new Sm4Stream(_cryptoPath, FileMode.Open, FileAccess.Read, FileShare.None,
+                    Sm4Define.segmentSize, false, Sm4Define.key);
+
+            var myLoadedAssetBundle = AssetBundle.LoadFromStream(_sm4Stream, 0, Sm4Define.segmentSize);
+            PrintAssetBundleInfo(myLoadedAssetBundle);
+            Debug.LogFormat("OK:{0}", Time.realtimeSinceStartup - begin);
         }
 
         public void LoadFile()
         {
+            var begin               = Time.realtimeSinceStartup;
             var myLoadedAssetBundle = AssetBundle.LoadFromFile(_assetPath);
-            var assetNames          = myLoadedAssetBundle.GetAllAssetNames();
-            if (assetNames.Length != 0)
-            {
-                foreach (var assetName in assetNames)
-                {
-                    Debug.LogFormat("===============Asset {0}", assetName);
-                    var asset = myLoadedAssetBundle.LoadAsset(assetName);
-
-                    Debug.LogFormat("==============={0} Context:{1}", asset.GetType(), asset);
-                }
-            }
-            else
-            {
-                var sceneNames = myLoadedAssetBundle.GetAllScenePaths();
-                foreach (var sceneName in sceneNames)
-                {
-                    Debug.LogFormat("===============Scene {0}", sceneName);
-
-                    SceneManager.LoadScene(sceneName, LoadSceneMode.Additive);
-                }
-            }
-        }
-
-        private Sm4Stream sm4Stream;
-
-        private void LoadSm4AssetBundle(string assetPath)
-        {
-            var begin = Time.realtimeSinceStartup;
-            if (sm4Stream == null)
-                sm4Stream = new Sm4Stream(assetPath, FileMode.Open, FileAccess.Read, FileShare.None,
-                    Sm4Define.segmentSize, false, Sm4Define.key);
-
-            var myLoadedAssetBundle = AssetBundle.LoadFromStream(sm4Stream, 0, Sm4Define.segmentSize);
-            var assetNames          = myLoadedAssetBundle.GetAllAssetNames();
-            if (assetNames.Length != 0)
-            {
-                foreach (var assetName in assetNames)
-                {
-                    Debug.LogFormat("===============Asset {0}", assetName);
-                    var asset = myLoadedAssetBundle.LoadAsset(assetName);
-
-                    Debug.LogFormat("==============={0} Context:{1}", asset.GetType(), asset);
-                }
-            }
-            else
-            {
-                var sceneNames = myLoadedAssetBundle.GetAllScenePaths();
-                foreach (var sceneName in sceneNames)
-                {
-                    Debug.LogFormat("===============Scene {0}", sceneName);
-
-                    SceneManager.LoadScene(sceneName, LoadSceneMode.Additive);
-                }
-            }
-
+            PrintAssetBundleInfo(myLoadedAssetBundle);
             Debug.LogFormat("OK:{0}", Time.realtimeSinceStartup - begin);
         }
-
-        private FileStream _fileStream;
-
+        
         public void LoadLZ4AssetBundle()
         {
+            var begin = Time.realtimeSinceStartup;
             var assetPath = String.Format("{0}/{1}_p.{2}", Application.streamingAssetsPath, TestDefine.sceneName_lz4,
                 TestDefine.scenePostfix);
 
@@ -174,7 +136,13 @@ namespace Test
                 _fileStream = new FileStream(assetPath, FileMode.Open);
 
             var myLoadedAssetBundle = AssetBundle.LoadFromStream(_fileStream);
-            var assetNames          = myLoadedAssetBundle.GetAllAssetNames();
+            PrintAssetBundleInfo(myLoadedAssetBundle);
+            Debug.LogFormat("OK:{0}", Time.realtimeSinceStartup - begin);
+        }
+
+        private static void PrintAssetBundleInfo(AssetBundle myLoadedAssetBundle)
+        {
+            var assetNames = myLoadedAssetBundle.GetAllAssetNames();
             if (assetNames.Length != 0)
             {
                 foreach (var assetName in assetNames)
@@ -182,7 +150,7 @@ namespace Test
                     Debug.LogFormat("===============Asset {0}", assetName);
                     var asset = myLoadedAssetBundle.LoadAsset(assetName);
 
-                    Debug.LogFormat("==============={0}", asset.GetType());
+                    Debug.LogFormat("==============={0} Context:{1}", asset.GetType(), asset);
                 }
             }
             else
