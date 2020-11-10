@@ -72,11 +72,11 @@ namespace Encrypt
                 
                 if (tempLength <= 0)
                 {
-                    throw new EncryptException();
+                    throw new EncryptException(string.Format("TempLength:{0}",tempLength));
                 }
                 
                 byte[] sm4;
-                if (Sm4Define.encryptHeader)
+                if (!Sm4Define.encryptAll)
                 {
                     if (header)
                     {

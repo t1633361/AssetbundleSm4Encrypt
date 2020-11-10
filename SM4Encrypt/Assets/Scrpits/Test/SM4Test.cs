@@ -37,7 +37,7 @@ namespace Test
             isScene = !isScene;
             if (isScene)
             {
-                _assetName         = TestDefine.sceneName_lzma;
+                _assetName         = TestDefine.sceneName_lz4;
                 _assetPostfix      = TestDefine.scenePostfix;
                 assetTypeName.text = "Scene";
             }
@@ -167,11 +167,11 @@ namespace Test
 
         public void LoadLZ4AssetBundle()
         {
-            var assetPath = String.Format("{0}/{1}.{2}", Application.streamingAssetsPath, TestDefine.sceneName_lz4,
+            var assetPath = String.Format("{0}/{1}_p.{2}", Application.streamingAssetsPath, TestDefine.sceneName_lz4,
                 TestDefine.scenePostfix);
 
             if (_fileStream == null)
-                _fileStream = new FileStream(assetPath, FileMode.Open);
+                _fileStream = new TestStream(assetPath, FileMode.Open);
 
             var myLoadedAssetBundle = AssetBundle.LoadFromStream(_fileStream);
             var assetNames          = myLoadedAssetBundle.GetAllAssetNames();
@@ -195,6 +195,30 @@ namespace Test
                     SceneManager.LoadScene(sceneName, LoadSceneMode.Additive);
                 }
             }
+        }
+
+        public void WriteDecryptoMemory()
+        {
+            string writePath = Application.streamingAssetsPath + "/WriteFile.scene";
+            
+            if (sm4Stream == null)
+                return;
+            
+            if (File.Exists(writePath))
+            {
+                File.Delete(writePath);
+            }
+
+            FileStream writeSteam = new FileStream(writePath, FileMode.Create);
+
+            var keys = sm4Stream.tempBytes.Keys;
+
+            foreach (var key in keys)
+            {
+                writeSteam.Position = writeSteam.Length;
+                writeSteam.Write(sm4Stream.tempBytes[key], 0, sm4Stream.tempBytes[key].Length);
+            }
+            writeSteam.Close();
         }
     }
 }
