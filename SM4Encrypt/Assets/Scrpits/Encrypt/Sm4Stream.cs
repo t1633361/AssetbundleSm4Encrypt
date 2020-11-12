@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using SecretUtils;
-using Test;
-using UnityEngine;
 
 namespace Encrypt
 {
@@ -14,26 +11,29 @@ namespace Encrypt
         public override  bool   CanSeek => true;
 
         private bool _encryptAll;
-        
-        public Sm4Stream(string path, FileMode mode, string key, bool encryptAll=false) : base(path, mode)
+
+        public Sm4Stream(string path, FileMode mode, string key, bool encryptAll = false) : base(path, mode)
         {
             sm4key      = key;
             _encryptAll = encryptAll;
         }
 
-        public Sm4Stream(string path, FileMode mode, FileAccess access, FileShare share, int bufferSize, bool useAsync,string key, bool encryptAll=false) : base(path, mode, access, share, bufferSize, useAsync)
+        public Sm4Stream(string path, FileMode mode, FileAccess access, FileShare share, int bufferSize, bool useAsync,
+            string              key,  bool encryptAll = false) : base(path, mode, access, share, bufferSize, useAsync)
         {
             sm4key      = key;
             _encryptAll = encryptAll;
         }
 
-        private byte[] _lz4Cache;
+        private byte[] _headerCache;
+        private byte[] _byteCache;
+
         public override int Read(byte[] array, int offset, int count)
         {
-            if(offset != 0)
+            if (offset != 0)
                 throw new EncryptException($"Offset is {offset}");
 
-            long  index       = -1;
+            long index     = -1;
             long remainder = Position % count;
 
             if (Sm4Define.encryptAll)
@@ -44,14 +44,14 @@ namespace Encrypt
                 }
                 else
                 {
-                    long oldPos   = Position;
-                    
+                    long oldPos = Position;
+
                     long firstPos = oldPos - remainder;
-                    
-                    long secondPos  = firstPos + count;
-                    
+
+                    long secondPos = firstPos + count;
+
                     base.Seek(firstPos, SeekOrigin.Begin);
-                    
+
                     if (Length < secondPos)
                     {
                         index = DecryptSegment(array, count, count - remainder, 0, remainder);
@@ -64,6 +64,7 @@ namespace Encrypt
 
                         index = count;
                     }
+
                     base.Seek(oldPos + index, SeekOrigin.Begin);
                 }
             }
@@ -75,53 +76,107 @@ namespace Encrypt
 
                     if (header)
                     {
-                        DecryptRead(array, index);
+                        if (_headerCache == null)
+                        {
+                            DecryptHeader(count);
+                        }
+
+                        Array.Copy(_headerCache, 0, array, 0, _headerCache.Length);
+                        index = _headerCache.Length;
+                        base.Seek(index, SeekOrigin.Begin);
+                    }
+                    else
+                    {
+                        index = Decrypt(array, count);
                     }
                 }
                 else
                 {
-                    
+                    if (_headerCache == null)
+                        throw new EncryptException("Don't decrypt header.");
+
+                    if (Length < count)//file size less than segment size 
+                    {
+                        index = _headerCache.Length - Position;
+                        Array.Copy(_headerCache, Position, array, 0, index);
+                    }
+                    else if (Position < count)
+                    {
+                        long oldPos = Position;
+
+                        var leftLength = count - remainder;
+                        
+                        base.Seek(count, SeekOrigin.Begin);
+                        
+                        index = base.Read(array, 0, count);
+                        index = Math.Min(index, remainder);
+
+                        for (int i = 0; i < index; ++i) // Decrypt
+                        {
+                            array[i + (leftLength)] = array[i];
+                        }
+
+                        Array.Copy(_headerCache, remainder, array, 0, leftLength);
+                        
+                        index = leftLength + index;
+                        
+                        base.Seek(oldPos + index, SeekOrigin.Begin);
+                    }
+                    else
+                    {
+                        index = Decrypt(array, count);    
+                    }
                 }
             }
 
-            return (int)index;
+            return (int) index;
         }
-        
-        private int DecryptSegment(byte[] array, int segmentSize, long copyLength, long sourceOffset,  long decryptOffset)
-        {
-            if (_lz4Cache == null || _lz4Cache.Length != segmentSize)
-                _lz4Cache = new byte[segmentSize];
 
-            var index = base.Read(_lz4Cache, 0, segmentSize);
+        private int DecryptHeader(int segmentSize)
+        {
+            long oldPos = Position;
+            segmentSize = (int)Math.Min(segmentSize, Length);
+            
+            if (_byteCache == null || _byteCache.Length != segmentSize)
+                _byteCache = new byte[segmentSize];
+
+            var index = base.Read(_byteCache, 0, segmentSize);
+            _headerCache = Sm4Base.DecryptCBCNoPadding(_byteCache, sm4key);
+
+            base.Seek(oldPos, SeekOrigin.Begin);
+            
+            return index;
+        }
+
+        private int Decrypt(byte[] array, int segmentSize)
+        {
+            var index = base.Read(array, 0, segmentSize);
+
+            return index;
+        }
+
+        private int DecryptSegment(byte[] array, int segmentSize, long copyLength, long sourceOffset,
+            long                          decryptOffset)
+        {
+            if (_byteCache == null || _byteCache.Length != segmentSize)
+                _byteCache = new byte[segmentSize];
+
+            var index = base.Read(_byteCache, 0, segmentSize);
+            var sm4   = Sm4Base.DecryptCBCNoPadding(_byteCache, sm4key);
 
             var offsetLenght = index - decryptOffset;
-            var l1 = copyLength > offsetLenght ? offsetLenght : copyLength;
-
-            var sm4 = Sm4Base.DecryptCBCNoPadding(_lz4Cache, sm4key);
-
-            for (long i = 0; i < l1; ++i)
+            var minLength    = Math.Min(copyLength, offsetLenght);
+            for (long i = 0; i < minLength; ++i)
             {
-                array[i + sourceOffset] = sm4[i+decryptOffset];
+                array[i + sourceOffset] = sm4[i + decryptOffset];
             }
 
-            return (int)offsetLenght;
+            return (int) offsetLenght;
         }
 
-        private void DecryptRead(byte[] array, long index)
-        {
-            var sm4 = Sm4Base.DecryptCBCNoPadding(array, sm4key);
-
-            for (int i = 0; i < index; ++i)
-            {
-                array[i] = sm4[i];
-            }
-        }
-        
         public override void Write(byte[] array, int offset, int count)
         {
             throw new NotImplementedException();
         }
-    
-    
     }
 }

@@ -77,7 +77,19 @@ namespace Encrypt
                 }
                 
                 byte[] sm4;
-                if (!Sm4Define.encryptAll)
+                if (Sm4Define.encryptAll)
+                {
+                    if (crypto)
+                    {
+                        sm4 = Sm4Base.EncryptCBCNoPadding(segmentBytes, Sm4Define.key);
+                    }
+                    else
+                    {
+                        sm4 = Sm4Base.DecryptCBCNoPadding(segmentBytes, Sm4Define.key);
+                    }
+
+                }
+                else
                 {
                     if (header)
                     {
@@ -96,18 +108,7 @@ namespace Encrypt
                     {
                         sm4 = segmentBytes;
                     }
-
-                }
-                else
-                {
-                    if (crypto)
-                    {
-                        sm4 = Sm4Base.EncryptCBCNoPadding(segmentBytes, Sm4Define.key);
-                    }
-                    else
-                    {
-                        sm4 = Sm4Base.DecryptCBCNoPadding(segmentBytes, Sm4Define.key);
-                    }
+                    
                 }
 
                 writeSteam.Position = writeSteam.Length;
